@@ -36,12 +36,15 @@ function startMenu(){
                 "View Departments",
                 "View Roles",
                 "View Employees",
-                "Update Employee Roles"
+                "View Employees by Department",
+                "View Employees by Role",
+                "Update Employee Roles",
+                "Exit"
             ]
         }
     )
     .then(function(response){
-        console.log(response.menu);
+        //console.log(response.menu);
         switch(response.menu){
             case "Add Department":
                 addDepartment();
@@ -61,8 +64,17 @@ function startMenu(){
             case "View Employees":
                 viewEmployees();
                 break;
+            case "View Employees by Department":
+                viewEmployeesByDepartment();
+                break;
+            case "View Employees by Role":
+                viewEmployeesByRole();
+                break;   
             case "Update Employee Roles":
                 updateEmployeeRoles();
+                break;
+            case "Exit":
+                menuExit();
                 break;
 
         }
@@ -70,31 +82,138 @@ function startMenu(){
 }
  
 function addDepartment(){
+    inquirer.prompt([
+        {
+            name: "name",
+            type: "input",
+            message: "Enter the department name: "
+        },
+
+    ]).then(function (response){
+        connection.query("INSERT INTO department SET ?",
+        {
+            name: response.name,
+        }, function(err){
+            if (err) throw err
+            console.table(response)
+            startMenu()
+        })
+    })
 
 }
  
 function addRoles(){
+    var departmentArray = [];
+    connection.query("SELECT * FROM department",
+    function(err, res){
+        for(var i=0; i<res.length; i++ ){
+            departmentArray.push(res[i].name)
+        }
+    }
+    )
+
+    inquirer.prompt([
+        {
+            name: "title",
+            type: "input",
+            message: "Enter the title for the role: "
+        },
+        {
+            name: "salary",
+            type: "number",
+            message: "Enter the salary amount (decimal): "
+        },
+        {
+            name: "department",
+            type: "list",
+            message: "Please select a department: ",
+            choices: departmentArray
+        },
+
+    ]).then(function (response){
+        connection.query("INSERT INTO role SET ?",
+        {
+            title: response.title,
+            salary: response.salary,
+            department_id: departmentArray.indexOf(response.department)+1
+        }, function(err){
+            if (err) throw err
+            console.table(response)
+            startMenu()
+        })
+    })
+    
 
 }
 
 function addEmployees(){
+    var roleArray = [];
+    connection.query("SELECT * FROM role",
+    function(err, res){
+        for(var i=0; i<res.length; i++ ){
+            roleArray.push(res[i].title)
+        }
+    }
+    )
 
+    inquirer.prompt([
+        {
+            name: "first_name",
+            type: "input",
+            message: "Enter the employee's first name: "
+        },
+        {
+            name: "last_name",
+            type: "input",
+            message: "Enter the employee's last name: "
+        },
+        {
+            name: "role",
+            type: "list",
+            message: "Please select a role: ",
+            choices: roleArray
+        },
+
+    ]).then(function (response){
+        connection.query("INSERT INTO employee SET ?",
+        {
+            first_name: response.first_name,
+            last_name: response.last_name,
+            role_id: roleArray.indexOf(response.role)+1
+        }, function(err){
+            if (err) throw err
+            console.table(response)
+            startMenu()
+        })
+    })
 }
 
 function viewDepartments(){
-    console.log("ViewDepartments");
-    connection.query("SELECT employee.first_name, employee.last_name. department.name AS Department FROM employee JOIN role on employee.role_id = role.id JOIN department ON role.department_id - department.id ORDER by employee.id;" ,
-    function(res){
+    connection.query("SELECT * from department",
+    function(err,res){
         console.table(res);
-        console.log("ViewDepartments2");
+        startMenu();
+    });
+}
+function viewRoles(){
+    connection.query("SELECT * from role",
+    function(err,res){
+        console.table(res);
+        startMenu();
+    });
+}
+function viewEmployeesByDepartment(){    
+    connection.query("SELECT employee.first_name, employee.last_name, department.name AS department FROM employee JOIN role on employee.role_id = role.id JOIN department ON role.department_id = department.id ORDER by employee.id;" ,
+    function(err,res){
+        console.table(res);
         startMenu();
     });
 
 }
 
-function viewRoles(){
+function viewEmployeesByRole(){
     connection.query("SELECT employee.first_name, employee.last_name, role.title AS title FROM employee JOIN role on employee.role_id = role.id;",
-    function(res){
+    function(err,res){
         console.table(res);
         startMenu();
     });
@@ -102,10 +221,40 @@ function viewRoles(){
 }
 
 function viewEmployees(){
+    connection.query("SELECT employee.first_name, employee.last_name, role.title, role.salary, department.name AS Department, CONCAT(e.first_name, ' ' ,e.last_name) AS Manager FROM employee INNER JOIN role on role.id = employee.role_id INNER JOIN department on department.id = role.department_id left join employee e on employee.manager_id = e.id;",
+    function(err,res){
+        console.table(res);
+        startMenu();
+    });
+}
+
+function getEmployees(){
+    var tempArray = [];
+    connection.query("SELECT * FROM employee",
+    function(err, res){
+        for(var i=0; i<res.length; i++ ){
+            tempArray.push(res[i].last_name)
+        }
+    }
+    )
+    return tempArray;
 
 }
 
 function updateEmployeeRoles(){
     
+    inquirer.prompt([
+        {
+            name: "role",
+            type: "list",
+            message: "Please select an employee: ",
+            choices: getEmployees()
+        },
+
+    ]);
 }
-connection.end();
+
+function menuExit(){
+    connection.end();
+    return 0;
+}
